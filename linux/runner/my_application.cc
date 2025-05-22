@@ -1,12 +1,16 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <flutter/plugin_registrar_linux.h>
+#include <flutter/plugin_registrar_manager.h>
+#include "../sinosecu_reader_plugin.h"
+
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
-#include "../sinosecu_reader_plugin.h"
+
 
 
 struct _MyApplication {
