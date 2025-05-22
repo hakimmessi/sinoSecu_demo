@@ -6,6 +6,8 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "../sinosecu_reader_plugin.h"
+
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -58,8 +60,13 @@ static void my_application_activate(GApplication* application) {
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+    // Register the SinosecuReaderPlugin with the Flutter engine.
+    SinosecuReaderPlugin::RegisterWithRegistrar(
+            flutter::PluginRegistrarManager::GetInstance()
+                    ->GetRegistrar<flutter::PluginRegistrarLinux>(view));
 
-  gtk_widget_grab_focus(GTK_WIDGET(view));
+
+    gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
 // Implements GApplication::local_command_line.
