@@ -2,29 +2,17 @@
 // Created by Hakim Messi on 2025/05/22.
 //
 
-#ifndef SIM_DISPENSER_DEMO_APP_SINOSECU_READER_PLUGIN_H
-#define SIM_DISPENSER_DEMO_APP_SINOSECU_READER_PLUGIN_H
-#include <flutter/method_channel.h>
-#include <flutter/plugin_registrar_linux.h>
+#ifndef SINOSECU_READER_PLUGIN_H
+#define SINOSECU_READER_PLUGIN_H
 
-#include <memory>
+#include <flutter_linux/flutter_linux.h>
 
-class SinosecuReaderPlugin : public flutter::Plugin {
-public:
-    static void RegisterWithRegistrar(FlPluginRegistrar* registrar);
+G_BEGIN_DECLS
 
+G_DECLARE_FINAL_TYPE(SinosecuReaderPlugin, sinosecu_reader_plugin, SINOSECU, READER_PLUGIN, GObject)
 
-    SinosecuReaderPlugin();
-    virtual ~SinosecuReaderPlugin();
+void sinosecu_reader_plugin_register_with_registrar(FlPluginRegistrar* registrar);
 
-    // Disallow copy and assign.
-    SinosecuReaderPlugin(const SinosecuReaderPlugin&) = delete;
-    SinosecuReaderPlugin& operator=(const SinosecuReaderPlugin&) = delete;
+G_END_DECLS
 
-private:
-    // Handle method calls from Dart.
-    void HandleMethodCall(
-            const flutter::MethodCall<std::string> &method_call,
-            std::unique_ptr<flutter::MethodResult<std::string>> result);
-};
-#endif //SIM_DISPENSER_DEMO_APP_SINOSECU_READER_PLUGIN_H
+#endif  // SINOSECU_READER_PLUGIN_H

@@ -3,61 +3,81 @@
 //
 
 #include "sinosecu_reader_plugin.h"
+
 #include <flutter_linux/flutter_linux.h>
+#include <glib-object.h>
 #include <iostream>
 #include <dlfcn.h>
 
+#define SINOSECU_READER_PLUGIN(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), sinosecu_reader_plugin_get_type(), SinosecuReaderPlugin))
+
+struct _SinosecuReaderPlugin {
+    GObject parent_instance;
+};
+
+G_DEFINE_TYPE(SinosecuReaderPlugin, sinosecu_reader_plugin, g_object_get_type())
+
 typedef int (*InitIDCardFunc)(const wchar_t*, int, const wchar_t*);
 
-void* libHandle = nullptr;
-InitIDCardFunc InitIDCard = nullptr;
+static void* libHandle = nullptr;
+static InitIDCardFunc InitIDCard = nullptr;
 
-SinosecuReaderPlugin::SinosecuReaderPlugin() {}
+static void handle_method_call(FlMethodCall* method_call, FlMethodChannel* channel) {
+    const gchar* method = fl_method_call_get_name(method_call);
 
-SinosecuReaderPlugin::~SinosecuReaderPlugin() {
-    if (libHandle) {
-        dlclose(libHandle);
-    }
-}
-
-void SinosecuReaderPlugin::HandleMethodCall(
-        const flutter::MethodCall<std::string> &call,
-        std::unique_ptr<flutter::MethodResult<std::string>> result) {
-    if (call.method_name().compare("initialize") == 0) {
+    if (strcmp(method, "initialize") == 0) {
         if (!libHandle) {
             libHandle = dlopen("libIDCard.so", RTLD_LAZY);
             if (!libHandle) {
-                result->Error("LOAD_ERROR", dlerror());
+                g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
+                        fl_method_error_response_new("LOAD_ERROR", dlerror(), nullptr));
+                fl_method_channel_respond(channel, method_call, response, nullptr);
                 return;
             }
 
             InitIDCard = (InitIDCardFunc)dlsym(libHandle, "InitIDCard");
             if (!InitIDCard) {
-                result->Error("SYM_ERROR", dlerror());
+                g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
+                        fl_method_error_response_new("SYM_ERROR", dlerror(), nullptr));
+                fl_method_channel_respond(channel, method_call, response, nullptr);
                 return;
             }
         }
 
         int ret = InitIDCard(L"426911010110763248", 0, L".");
-        result->Success(std::to_string(ret));
+        std::string result_str = std::to_string(ret);
+        g_autoptr(FlValue) result_value = fl_value_new_string(result_str.c_str());
+        g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(fl_method_success_response_new(result_value));
+        fl_method_channel_respond(channel, method_call, response, nullptr);
     } else {
-        result->NotImplemented();
+        g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+        fl_method_channel_respond(channel, method_call, response, nullptr);
     }
 }
 
-void SinosecuReaderPlugin::RegisterWithRegistrar(FlPluginRegistrar* registrar)
- {
-     auto channel = std::make_unique<flutter::MethodChannel<std::string>>(
-             flutter_plugin_registrar_get_messenger(registrar),
-                     "sinosecu_reader",
-                     &flutter::StandardMethodCodec::GetInstance());
+static void sinosecu_reader_plugin_dispose(GObject* object) {
+    G_OBJECT_CLASS(sinosecu_reader_plugin_parent_class)->dispose(object);
+}
 
-    auto plugin = std::make_unique<SinosecuReaderPlugin>();
+static void sinosecu_reader_plugin_class_init(SinosecuReaderPluginClass* klass) {
+    G_OBJECT_CLASS(klass)->dispose = sinosecu_reader_plugin_dispose;
+}
 
-    channel->SetMethodCallHandler(
-            [plugin_pointer = plugin.get()](const auto &call, auto result) {
-                plugin_pointer->HandleMethodCall(call, std::move(result));
-            });
+static void sinosecu_reader_plugin_init(SinosecuReaderPlugin* self) {}
 
-    registrar->AddPlugin(std::move(plugin));
+void sinosecu_reader_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
+    SinosecuReaderPlugin* plugin = SINOSECU_READER_PLUGIN(
+            g_object_new(sinosecu_reader_plugin_get_type(), nullptr));
+
+    g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+
+    g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
+            fl_plugin_registrar_get_messenger(registrar),
+            "sinosecu_reader",
+            FL_METHOD_CODEC(codec));
+
+    fl_method_channel_set_method_call_handler(channel, handle_method_call,
+                                              g_object_ref(plugin),
+                                              g_object_unref);
 }
