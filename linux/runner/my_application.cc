@@ -54,12 +54,10 @@ static void my_application_activate(GApplication* application) {
 
     fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
-
     SinosecuReaderPlugin::RegisterWithRegistrar(
-            flutter::PluginRegistrarManager::GetInstance()
-                    ->GetRegistrar<flutter::PluginRegistrarLinux>(view));
+            fl_plugin_registry_get_registrar_for_plugin(
+                    FL_PLUGIN_REGISTRY(view), "SinosecuReaderPlugin"));
 
-    );
 
     );
 
