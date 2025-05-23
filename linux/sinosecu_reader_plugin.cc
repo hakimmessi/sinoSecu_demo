@@ -1,11 +1,8 @@
-//
-// Created by Hakim Messi on 2025/05/22.
-//
-
 #include "sinosecu_reader_plugin.h"
 
 #include <flutter_linux/flutter_linux.h>
-#include <glib-object.h>
+#include <glib.h>
+#include <string.h>
 #include <iostream>
 #include <dlfcn.h>
 
@@ -23,7 +20,7 @@ typedef int (*InitIDCardFunc)(const wchar_t*, int, const wchar_t*);
 static void* libHandle = nullptr;
 static InitIDCardFunc InitIDCard = nullptr;
 
-static void handle_method_call(FlMethodCall* method_call, FlMethodChannel* channel) {
+static void method_call_handler(FlMethodChannel* channel, FlMethodCall* method_call, gpointer user_data) {
     const gchar* method = fl_method_call_get_name(method_call);
 
     if (strcmp(method, "initialize") == 0) {
@@ -32,7 +29,7 @@ static void handle_method_call(FlMethodCall* method_call, FlMethodChannel* chann
             if (!libHandle) {
                 g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
                         fl_method_error_response_new("LOAD_ERROR", dlerror(), nullptr));
-                fl_method_channel_respond(channel, method_call, response, nullptr);
+                fl_method_call_respond(method_call, response, nullptr);
                 return;
             }
 
@@ -40,19 +37,23 @@ static void handle_method_call(FlMethodCall* method_call, FlMethodChannel* chann
             if (!InitIDCard) {
                 g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
                         fl_method_error_response_new("SYM_ERROR", dlerror(), nullptr));
-                fl_method_channel_respond(channel, method_call, response, nullptr);
+                fl_method_call_respond(method_call, response, nullptr);
                 return;
             }
         }
 
         int ret = InitIDCard(L"426911010110763248", 0, L".");
-        std::string result_str = std::to_string(ret);
-        g_autoptr(FlValue) result_value = fl_value_new_string(result_str.c_str());
-        g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(fl_method_success_response_new(result_value));
-        fl_method_channel_respond(channel, method_call, response, nullptr);
+        char ret_str[16];
+        snprintf(ret_str, sizeof(ret_str), "%d", ret);
+
+        g_autoptr(FlValue) result_value = fl_value_new_string(ret_str);
+        g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
+                fl_method_success_response_new(result_value));
+        fl_method_call_respond(method_call, response, nullptr);
     } else {
-        g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
-        fl_method_channel_respond(channel, method_call, response, nullptr);
+        g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
+                fl_method_not_implemented_response_new());
+        fl_method_call_respond(method_call, response, nullptr);
     }
 }
 
@@ -72,12 +73,10 @@ void sinosecu_reader_plugin_register_with_registrar(FlPluginRegistrar* registrar
 
     g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
 
-    g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
+    FlMethodChannel* channel = fl_method_channel_new(
             fl_plugin_registrar_get_messenger(registrar),
             "sinosecu_reader",
             FL_METHOD_CODEC(codec));
 
-    fl_method_channel_set_method_call_handler(channel, handle_method_call,
-                                              g_object_ref(plugin),
-                                              g_object_unref);
+    fl_method_channel_set_method_call_handler(channel, method_call_handler, g_object_ref(plugin), g_object_unref);
 }
